@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cookie Ingredient Spreadsheet</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .instructions {
+            background-color: #fff3cd;
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #ffc107;
+            font-size: 14px;
+        }
+        .sheet-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            overflow-x: auto;
+        }
+        .sheet-header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 15px;
+            font-weight: bold;
+            border-radius: 8px 8px 0 0;
+        }
+        .spreadsheet {
+            display: grid;
+            grid-template-columns: auto;
+            font-size: 13px;
+        }
+        .row {
+            display: contents;
+        }
+        .cell {
+            border: 1px solid #ddd;
+            padding: 8px;
+            min-width: 120px;
+            background: white;
+        }
+        .cell.header {
+            background-color: #f0f0f0;
+            font-weight: bold;
+            text-align: center;
+        }
+        .cell.row-header {
+            background-color: #f8f8f8;
+            font-weight: bold;
+        }
+        .cell input {
+            width: 100%;
+            border: none;
+            padding: 4px;
+            font-size: 13px;
+            box-sizing: border-box;
+            background: transparent;
+        }
+        .cell input:focus {
+            outline: 2px solid #4CAF50;
+            background: #fffef0;
+        }
+        .cell.calculated {
+            background-color: #f0f0f0;
+            color: #666;
+            font-style: italic;
+        }
+        .cell.total {
+            background-color: #e8f5e9;
+            font-weight: bold;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 15px;
+            font-size: 13px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .delete-btn {
+            background-color: #f44336;
+            padding: 4px 8px;
+            font-size: 11px;
+            margin: 0;
+        }
+        .delete-btn:hover {
+            background-color: #da190b;
+        }
+        .add-ingredient {
+            background-color: #2196F3;
+        }
+        .add-ingredient:hover {
+            background-color: #0b7dda;
+        }
+        select {
+            width: 100%;
+            padding: 4px;
+            border: 1px solid #ddd;
+            font-size: 13px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🍪 Cookie Ingredient Spreadsheet</h1>
+    
+    <div class="instructions">
+        <strong>How to use:</strong> In Sheet 1, add recipes with their yields and ingredients (add custom ingredients as needed). In Sheet 2, select recipes and enter desired quantities. Sheet 3 shows total ingredients needed.
+        <div style="margin-top: 10px;">
+            <button onclick="exportData()">📥 Export Recipes</button>
+            <button onclick="document.getElementById('importFile').click()" class="add-ingredient">📤 Import Recipes</button>
+            <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(event)">
+        </div>
+    </div>
+
+    <!-- Sheet 1: Recipe Database -->
+    <div class="sheet-container">
+        <div class="sheet-header">Sheet 1: Recipe Database</div>
+        <div id="recipeSpreadsheet" class="spreadsheet"></div>
+        <button onclick="addRecipeRow()">+ Add Recipe</button>
+        <button onclick="addIngredientColumn()" class="add-ingredient">+ Add Ingredient Column</button>
+    </div>
+
+    <!-- Sheet 2: Production Plan -->
+    <div class="sheet-container">
+        <div class="sheet-header">Sheet 2: Production Plan</div>
+        <div id="productionSpreadsheet" class="spreadsheet"></div>
+        <button onclick="addProductionRow()">+ Add Production Row</button>
+    </div>
+
+    <!-- Sheet 3: Total Ingredients -->
+    <div class="sheet-container">
+        <div class="sheet-header">Sheet 3: Total Ingredients Summary</div>
+        <div id="summarySpreadsheet" class="spreadsheet"></div>
+    </div>
+
+    <script>
+        // Load data from localStorage or use defaults
+        function loadData() {
+            const savedData = localStorage.getItem('cookieCalculatorData');
+            if (savedData) {
+                try {
+                    const data = JSON.parse(savedData);
+                    return {
+                        ingredients: data.ingredients,
+                        recipes: data.recipes,
+                        production: data.production
+                    };
+                } catch (e) {
+                    console.error('Error loading saved data:', e);
+                }
+            }
+            // Default data
+            return getDefaultData();
+        }
+
+        function getDefaultData() {
+            return {
+                ingredients: ['Flour (cups)', 'Sugar (cups)', 'Butter (cups)', 'Eggs', 'Chocolate Chips (cups)'],
+                recipes: [
+                    { name: 'Chocolate Chip', yield: 48, ingredients: { 'Flour (cups)': 2.25, 'Sugar (cups)': 1.5, 'Butter (cups)': 1, 'Eggs': 2, 'Chocolate Chips (cups)': 2 } },
+                    { name: 'Oatmeal Raisin', yield: 36, ingredients: { 'Flour (cups)': 1.5, 'Sugar (cups)': 1, 'Butter (cups)': 0.75, 'Eggs': 2, 'Chocolate Chips (cups)': 0 } },
+                    { name: 'Sugar Cookies', yield: 60, ingredients: { 'Flour (cups)': 3, 'Sugar (cups)': 1.5, 'Butter (cups)': 1, 'Eggs': 1, 'Chocolate Chips (cups)': 0 } }
+                ],
+                production: [
+                    { recipe: 'Chocolate Chip', desired: 96 },
+                    { recipe: 'Sugar Cookies', desired: 120 }
+                ]
+            };
+        }
+
+        function saveData() {
+            const data = {
+                ingredients: ingredients,
+                recipes: recipes,
+                production: production
+            };
+            localStorage.setItem('cookieCalculatorData', JSON.stringify(data));
+        }
+
+        function exportData() {
+            const data = {
+                ingredients: ingredients,
+                recipes: recipes,
+                production: production
+            };
+            const jsonStr = JSON.stringify(data, null, 2);
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'cookie-recipes.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.ingredients && data.recipes && data.production) {
+                        ingredients = data.ingredients;
+                        recipes = data.recipes;
+                        production = data.production;
+                        renderAll();
+                        alert('Recipes imported successfully!');
+                    } else {
+                        alert('Invalid file format. Please select a valid recipe file.');
+                    }
+                } catch (err) {
+                    alert('Error reading file: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = ''; // Reset file input
+        }
+
+        const initialData = loadData();
+        let ingredients = initialData.ingredients;
+        let recipes = initialData.recipes;
+        let production = initialData.production;
+
+        function renderRecipeSpreadsheet() {
+            const container = document.getElementById('recipeSpreadsheet');
+            const cols = 3 + ingredients.length + 1; // Recipe Name, Yield, Delete + ingredients
+            container.style.gridTemplateColumns = `40px 180px 120px ${ingredients.map(() => '140px').join(' ')} 80px`;
+            
+            let html = '<div class="row">';
+            html += '<div class="cell header"></div>';
+            html += '<div class="cell header">A<br>Recipe Name</div>';
+            html += '<div class="cell header">B<br>Standard Yield</div>';
+            ingredients.forEach((ing, i) => {
+                html += `<div class="cell header">${String.fromCharCode(67 + i)}<br>${ing}<br><button class="delete-btn" onclick="deleteIngredient('${ing.replace(/'/g, "\\'")}')">×</button></div>`;
+            });
+            html += '<div class="cell header">Action</div>';
+            html += '</div>';
+            
+            recipes.forEach((recipe, idx) => {
+                html += '<div class="row">';
+                html += `<div class="cell row-header">${idx + 1}</div>`;
+                html += `<div class="cell"><input type="text" value="${recipe.name}" onchange="updateRecipeName(${idx}, this.value)"></div>`;
+                html += `<div class="cell"><input type="number" value="${recipe.yield}" onchange="updateRecipeYield(${idx}, this.value)"></div>`;
+                ingredients.forEach(ing => {
+                    const val = recipe.ingredients[ing] || 0;
+                    html += `<div class="cell"><input type="number" step="0.25" value="${val}" onchange="updateRecipeIngredient(${idx}, '${ing}', this.value)"></div>`;
+                });
+                html += `<div class="cell"><button class="delete-btn" onclick="deleteRecipe(${idx})">Delete</button></div>`;
+                html += '</div>';
+            });
+            
+            container.innerHTML = html;
+        }
+
+        function renderProductionSpreadsheet() {
+            const container = document.getElementById('productionSpreadsheet');
+            const cols = 3 + ingredients.length + 1;
+            container.style.gridTemplateColumns = `40px 180px 120px ${ingredients.map(() => '140px').join(' ')} 80px`;
+            
+            let html = '<div class="row">';
+            html += '<div class="cell header"></div>';
+            html += '<div class="cell header">A<br>Recipe</div>';
+            html += '<div class="cell header">B<br>Desired Quantity</div>';
+            ingredients.forEach((ing, i) => {
+                html += `<div class="cell header">${String.fromCharCode(67 + i)}<br>${ing}</div>`;
+            });
+            html += '<div class="cell header">Action</div>';
+            html += '</div>';
+            
+            production.forEach((prod, idx) => {
+                html += '<div class="row">';
+                html += `<div class="cell row-header">${idx + 1}</div>`;
+                html += `<div class="cell"><select onchange="updateProductionRecipe(${idx}, this.value)">`;
+                html += '<option value="">-- Select --</option>';
+                recipes.forEach(r => {
+                    html += `<option value="${r.name}" ${prod.recipe === r.name ? 'selected' : ''}>${r.name}</option>`;
+                });
+                html += `</select></div>`;
+                html += `<div class="cell"><input type="number" value="${prod.desired}" onchange="updateProductionDesired(${idx}, this.value)"></div>`;
+                
+                const recipe = recipes.find(r => r.name === prod.recipe);
+                ingredients.forEach(ing => {
+                    let calculated = 0;
+                    if (recipe && recipe.yield > 0) {
+                        const baseAmount = recipe.ingredients[ing] || 0;
+                        calculated = (baseAmount * prod.desired / recipe.yield);
+                    }
+                    html += `<div class="cell calculated">${calculated.toFixed(2)}</div>`;
+                });
+                html += `<div class="cell"><button class="delete-btn" onclick="deleteProduction(${idx})">Delete</button></div>`;
+                html += '</div>';
+            });
+            
+            container.innerHTML = html;
+        }
+
+        function renderSummarySpreadsheet() {
+            const container = document.getElementById('summarySpreadsheet');
+            container.style.gridTemplateColumns = '40px 200px 150px';
+            
+            let totals = {};
+            ingredients.forEach(ing => totals[ing] = 0);
+            
+            production.forEach(prod => {
+                const recipe = recipes.find(r => r.name === prod.recipe);
+                if (recipe && recipe.yield > 0) {
+                    ingredients.forEach(ing => {
+                        const baseAmount = recipe.ingredients[ing] || 0;
+                        totals[ing] += (baseAmount * prod.desired / recipe.yield);
+                    });
+                }
+            });
+            
+            let html = '<div class="row">';
+            html += '<div class="cell header"></div>';
+            html += '<div class="cell header">A<br>Ingredient</div>';
+            html += '<div class="cell header">B<br>Total Quantity</div>';
+            html += '</div>';
+            
+            ingredients.forEach((ing, idx) => {
+                html += '<div class="row">';
+                html += `<div class="cell row-header">${idx + 1}</div>`;
+                html += `<div class="cell total">${ing}</div>`;
+                html += `<div class="cell total">${totals[ing].toFixed(2)}</div>`;
+                html += '</div>';
+            });
+            
+            container.innerHTML = html;
+        }
+
+        function updateRecipeName(idx, value) {
+            recipes[idx].name = value;
+            renderAll();
+        }
+
+        function updateRecipeYield(idx, value) {
+            recipes[idx].yield = parseFloat(value) || 0;
+            renderAll();
+        }
+
+        function updateRecipeIngredient(idx, ingredient, value) {
+            recipes[idx].ingredients[ingredient] = parseFloat(value) || 0;
+            renderAll();
+        }
+
+        function addRecipeRow() {
+            const newRecipe = { name: '', yield: 0, ingredients: {} };
+            ingredients.forEach(ing => newRecipe.ingredients[ing] = 0);
+            recipes.push(newRecipe);
+            renderAll();
+        }
+
+        function deleteRecipe(idx) {
+            recipes.splice(idx, 1);
+            renderAll();
+        }
+
+        function deleteIngredient(ingredientName) {
+            if (confirm(`Delete ingredient "${ingredientName}" from all recipes?`)) {
+                const index = ingredients.indexOf(ingredientName);
+                if (index > -1) {
+                    ingredients.splice(index, 1);
+                    recipes.forEach(recipe => {
+                        delete recipe.ingredients[ingredientName];
+                    });
+                    renderAll();
+                }
+            }
+        }
+
+        function addIngredientColumn() {
+            const name = prompt('Enter ingredient name (e.g., "Vanilla (tsp)", "Oats (cups)"):');
+            if (name && name.trim()) {
+                const ingredientName = name.trim();
+                ingredients.push(ingredientName);
+                recipes.forEach(recipe => {
+                    if (!recipe.ingredients[ingredientName]) {
+                        recipe.ingredients[ingredientName] = 0;
+                    }
+                });
+                renderAll();
+            }
+        }
+
+        function updateProductionRecipe(idx, value) {
+            production[idx].recipe = value;
+            renderAll();
+        }
+
+        function updateProductionDesired(idx, value) {
+            production[idx].desired = parseFloat(value) || 0;
+            renderAll();
+        }
+
+        function addProductionRow() {
+            production.push({ recipe: '', desired: 0 });
+            renderAll();
+        }
+
+        function deleteProduction(idx) {
+            production.splice(idx, 1);
+            renderAll();
+        }
+
+        function renderAll() {
+            renderRecipeSpreadsheet();
+            renderProductionSpreadsheet();
+            renderSummarySpreadsheet();
+            saveData();
+        }
+
+        // Initial render
+        renderAll();
+    </script>
+</body>
+</html>
